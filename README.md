@@ -11,11 +11,18 @@ by [Xin Tao](http://www.xtao.website), Hongyun Gao, [Xiaoyong Shen](http://xiaoy
 <img src="./imgs/comp_real.jpg" width="100%" alt="More Cases">
 
 ## Prerequisites
-- Python2.7
-- Scipy
-- Scikit-image
-- numpy
-- Tensorflow 1.4 with NVIDIA GPU or CPU (cpu testing is very slow)
+- Tensorflow 1.x
+  - Python2.7
+  - Scipy
+  - Scikit-image
+  - numpy
+  - Tensorflow 1.4 with NVIDIA GPU or CPU (cpu testing is very slow)
+- Tensorflow 2.x
+  - Python3.7
+  - Scipy 1.2
+  - Scikit-image
+  - numpy
+  - Tensorflow 2.1 with NVIDIA GPU(CUDA 10.1) or CPU (cpu testing is very slow)
 
 ## Installation
 Clone this project to your machine. 

@@ -3,10 +3,13 @@ import os
 import time
 import random
 import datetime
+
+import imageio
 import scipy.misc
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
+import tf_slim as slim
+from PIL import Image
 from datetime import datetime
 from util.util import *
 from util.BasicConvLSTMCell import *
@@ -36,9 +39,9 @@ class DEBLUR(object):
 
     def input_producer(self, batch_size=10):
         def read_data():
-            img_a = tf.image.decode_image(tf.read_file(tf.string_join(['./training_set/', self.data_queue[0]])),
+            img_a = tf.image.decode_image(tf.compat.v1.read_file(tf.compat.v1.string_join(['./training_set/', self.data_queue[0]])),
                                           channels=3)
-            img_b = tf.image.decode_image(tf.read_file(tf.string_join(['./training_set/', self.data_queue[1]])),
+            img_b = tf.image.decode_image(tf.compat.v1.read_file(tf.compat.v1.string_join(['./training_set/', self.data_queue[1]])),
                                           channels=3)
             img_a, img_b = preprocessing([img_a, img_b])
             return img_a, img_b
@@ -47,18 +50,18 @@ class DEBLUR(object):
             imgs = [tf.cast(img, tf.float32) / 255.0 for img in imgs]
             if self.args.model != 'color':
                 imgs = [tf.image.rgb_to_grayscale(img) for img in imgs]
-            img_crop = tf.unstack(tf.random_crop(tf.stack(imgs, axis=0), [2, self.crop_size, self.crop_size, self.chns]),
+            img_crop = tf.unstack(tf.compat.v1.random_crop(tf.stack(imgs, axis=0), [2, self.crop_size, self.crop_size, self.chns]),
                                   axis=0)
             return img_crop
 
-        with tf.variable_scope('input'):
+        with tf.compat.v1.variable_scope('input'):
             List_all = tf.convert_to_tensor(self.data_list, dtype=tf.string)
             gt_list = List_all[:, 0]
             in_list = List_all[:, 1]
 
-            self.data_queue = tf.train.slice_input_producer([in_list, gt_list], capacity=20)
+            self.data_queue = tf.compat.v1.train.slice_input_producer([in_list, gt_list], capacity=20)
             image_in, image_gt = read_data()
-            batch_in, batch_gt = tf.train.batch([image_in, image_gt], batch_size=batch_size, num_threads=8, capacity=20)
+            batch_in, batch_gt = tf.compat.v1.train.batch([image_in, image_gt], batch_size=batch_size, num_threads=8, capacity=20)
 
         return batch_in, batch_gt
 
@@ -66,15 +69,15 @@ class DEBLUR(object):
         n, h, w, c = inputs.get_shape().as_list()
 
         if self.args.model == 'lstm':
-            with tf.variable_scope('LSTM'):
+            with tf.compat.v1.variable_scope('LSTM'):
                 cell = BasicConvLSTMCell([h / 4, w / 4], [3, 3], 128)
                 rnn_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32)
 
         x_unwrap = []
-        with tf.variable_scope(scope, reuse=reuse):
+        with tf.compat.v1.variable_scope(scope, reuse=reuse):
             with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],
                                 activation_fn=tf.nn.relu, padding='SAME', normalizer_fn=None,
-                                weights_initializer=tf.contrib.layers.xavier_initializer(uniform=True),
+                                weights_initializer=tf.initializers.GlorotUniform(),
                                 biases_initializer=tf.constant_initializer(0.0)):
 
                 inp_pred = inputs
@@ -82,11 +85,11 @@ class DEBLUR(object):
                     scale = self.scale ** (self.n_levels - i - 1)
                     hi = int(round(h * scale))
                     wi = int(round(w * scale))
-                    inp_blur = tf.image.resize_images(inputs, [hi, wi], method=0)
-                    inp_pred = tf.stop_gradient(tf.image.resize_images(inp_pred, [hi, wi], method=0))
+                    inp_blur = tf.compat.v1.image.resize_images(inputs, [hi, wi], method=0)
+                    inp_pred = tf.compat.v1.stop_gradient(tf.compat.v1.image.resize_images(inp_pred, [hi, wi], method=0))
                     inp_all = tf.concat([inp_blur, inp_pred], axis=3, name='inp')
                     if self.args.model == 'lstm':
-                        rnn_state = tf.image.resize_images(rnn_state, [hi // 4, wi // 4], method=0)
+                        rnn_state = tf.compat.v1.image.resize_images(rnn_state, [hi // 4, wi // 4], method=0)
 
                     # encoder
                     conv1_1 = slim.conv2d(inp_all, 32, [5, 5], scope='enc1_1')
@@ -126,7 +129,7 @@ class DEBLUR(object):
                     if i >= 0:
                         x_unwrap.append(inp_pred)
                     if i == 0:
-                        tf.get_variable_scope().reuse_variables()
+                        tf.compat.v1.get_variable_scope().reuse_variables()
 
             return x_unwrap
 
@@ -143,7 +146,7 @@ class DEBLUR(object):
         self.loss_total = 0
         for i in xrange(self.n_levels):
             _, hi, wi, _ = x_unwrap[i].get_shape().as_list()
-            gt_i = tf.image.resize_images(img_gt, [hi, wi], method=0)
+            gt_i = tf.compat.v1.image.resize_images(img_gt, [hi, wi], method=0)
             loss = tf.reduce_mean((gt_i - x_unwrap[i]) ** 2)
             self.loss_total += loss
 
@@ -154,7 +157,7 @@ class DEBLUR(object):
         tf.summary.scalar('loss_total', self.loss_total)
 
         # training vars
-        all_vars = tf.trainable_variables()
+        all_vars = tf.compat.v1.trainable_variables()
         self.all_vars = all_vars
         self.g_vars = [var for var in all_vars if 'g_net' in var.name]
         self.lstm_vars = [var for var in all_vars if 'LSTM' in var.name]
@@ -163,7 +166,7 @@ class DEBLUR(object):
 
     def train(self):
         def get_optimizer(loss, global_step=None, var_list=None, is_gradient_clip=False):
-            train_op = tf.train.AdamOptimizer(self.lr)
+            train_op = tf.compat.v1.train.AdamOptimizer(self.lr)
             if is_gradient_clip:
                 grads_and_vars = train_op.compute_gradients(loss, var_list=var_list)
                 unchanged_gvs = [(grad, var) for grad, var in grads_and_vars if not 'LSTM' in var.name]
@@ -183,7 +186,7 @@ class DEBLUR(object):
         self.build_model()
 
         # learning rate decay
-        self.lr = tf.train.polynomial_decay(self.learning_rate, global_step, self.max_steps, end_learning_rate=0.0,
+        self.lr = tf.compat.v1.train.polynomial_decay(self.learning_rate, global_step, self.max_steps, end_learning_rate=0.0,
                                             power=0.3)
         tf.summary.scalar('learning_rate', self.lr)
 
@@ -191,17 +194,17 @@ class DEBLUR(object):
         train_gnet = get_optimizer(self.loss_total, global_step, self.all_vars)
 
         # session and thread
-        gpu_options = tf.GPUOptions(allow_growth=True)
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+        gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
+        sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options))
         self.sess = sess
-        sess.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver(max_to_keep=50, keep_checkpoint_every_n_hours=1)
+        sess.run(tf.compat.v1.global_variables_initializer())
+        self.saver = tf.compat.v1.train.Saver(max_to_keep=50, keep_checkpoint_every_n_hours=1)
         coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        threads = tf.compat.v1.train.start_queue_runners(sess=sess, coord=coord)
 
         # training summary
-        summary_op = tf.summary.merge_all()
-        summary_writer = tf.summary.FileWriter(self.train_dir, sess.graph, flush_secs=30)
+        summary_op = tf.compat.v1.summary.merge_all()
+        summary_writer = tf.compat.v1.summary.FileWriter(self.train_dir, sess.graph, flush_secs=30)
 
         for step in xrange(sess.run(global_step), self.max_steps + 1):
 
@@ -267,12 +270,13 @@ class DEBLUR(object):
         H, W = height, width
         inp_chns = 3 if self.args.model == 'color' else 1
         self.batch_size = 1 if self.args.model == 'color' else 3
-        inputs = tf.placeholder(shape=[self.batch_size, H, W, inp_chns], dtype=tf.float32)
+        tf.compat.v1.disable_eager_execution()
+        inputs = tf.compat.v1.placeholder(shape=[self.batch_size, H, W, inp_chns], dtype=tf.float32)
         outputs = self.generator(inputs, reuse=False)
 
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))
+        sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)))
 
-        self.saver = tf.train.Saver()
+        self.saver = tf.compat.v1.train.Saver()
         self.load(sess, self.train_dir, step=523000)
 
         for imgName in imgsName:
