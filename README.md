@@ -11,15 +11,6 @@ by [Xin Tao](http://www.xtao.website), Hongyun Gao, [Xiaoyong Shen](http://xiaoy
 <img src="./imgs/comp_real.jpg" width="100%" alt="More Cases">
 
 ## Prerequisites
-<<<<<<< HEAD
-=======
-- Tensorflow 1.x
-  - Python2.7
-  - Scipy
-  - Scikit-image
-  - numpy
-  - Tensorflow 1.4 with NVIDIA GPU or CPU (cpu testing is very slow)
->>>>>>> b863964cb3363f4f6719cd693f95efcb27a48573
 - Tensorflow 2.x
   - Python3.7
   - Scipy 1.2
@@ -28,7 +19,14 @@ by [Xin Tao](http://www.xtao.website), Hongyun Gao, [Xiaoyong Shen](http://xiaoy
   - Tensorflow 2.1 with NVIDIA GPU(CUDA 10.1) or CPU (cpu testing is very slow)
 
 ## Installation
-Clone this project to your machine. 
+Clone original project to your machine ( Using tensorflow 1.x). 
+
+```bash
+git clone https://github.com/jiangsutx/SRN-Deblur.git
+cd SRN-Deblur
+```
+
+Clone current project to your machine
 
 ```bash
 git clone https://github.com/jiangsutx/SRN-Deblur.git
