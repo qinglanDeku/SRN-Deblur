@@ -29,7 +29,7 @@ cd SRN-Deblur
 Clone current project to your machine
 
 ```bash
-git clone https://github.com/jiangsutx/SRN-Deblur.git
+git clone https://github.com/qinglanDeku/SRN-Deblur.git
 cd SRN-Deblur
 ```
 
